@@ -1,0 +1,10 @@
+# System and temp files
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Python cache
+__pycache__/
+*.pyc

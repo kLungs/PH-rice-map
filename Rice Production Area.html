@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Philippines Rice & NC Power Tiller Territorial Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=Ubuntu:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --kubota-orange: #F37021;
+            --kubota-dark: #0F172A;
+            --kubota-blue: #0284C7;
+            --kubota-green: #059669;
+            --kubota-purple: #7C3AED;
+            --bg-canvas: #F1F5F9;
+            --bg-card: #FFFFFF;
+            --text-primary: #1E293B;
+            --text-secondary: #64748B;
+            --border-ui: #E2E8F0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Sarabun', sans-serif; }
+        body { background-color: var(--bg-canvas); color: var(--text-primary); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        header { background-color: var(--kubota-dark); color: #FFF; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--kubota-orange); flex-shrink: 0; }
+        header h1 { font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        header .tagline { font-size: 0.8rem; color: #94A3B8; font-weight: 300; }
+        .badge { background: var(--kubota-orange); padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; color: #FFF; }
+        .layout-container { display: grid; grid-template-columns: 380px 1fr; flex-grow: 1; height: calc(100vh - 58px); overflow: hidden; }
+        .sidebar { background: var(--bg-card); border-right: 1px solid var(--border-ui); display: flex; flex-direction: column; z-index: 10; overflow: hidden; }
+        .sidebar-header { padding: 16px; border-bottom: 1px solid var(--border-ui); }
+        .filter-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; }
+        .btn-group { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+        .btn-filter { background: #F8FAFC; border: 1px solid var(--border-ui); padding: 7px 4px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-filter.active, .btn-filter:hover { background: var(--kubota-orange); color: #FFF; border-color: var(--kubota-orange); }
+        .kpi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .kpi-card { background: #F8FAFC; border: 1px solid var(--border-ui); border-radius: 8px; padding: 8px; text-align: center; }
+        .kpi-val { font-size: 1.2rem; font-weight: 700; color: var(--kubota-dark); font-family: 'Ubuntu', sans-serif; }
+        .kpi-lbl { font-size: 0.68rem; color: var(--text-secondary); }
+        .province-list { flex-grow: 1; overflow-y: auto; padding: 12px 16px; }
+        .province-item { background: #FFF; border: 1px solid var(--border-ui); border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #CBD5E1; }
+        .province-item:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08); }
+        .province-item.active { border-left-color: var(--kubota-orange); background: #FFF7ED; }
+        .province-item.reg-visayas { border-left-color: var(--kubota-purple); }
+        .province-item.reg-luzon { border-left-color: var(--kubota-blue); }
+        .province-item.reg-mindanao { border-left-color: var(--kubota-green); }
+        .item-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .item-title { font-size: 0.95rem; font-weight: 700; color: var(--kubota-dark); }
+        .item-badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
+        .badge-visayas { background: #EDE9FE; color: var(--kubota-purple); }
+        .badge-luzon { background: #E0F2FE; color: var(--kubota-blue); }
+        .badge-mindanao { background: #D1FAE5; color: var(--kubota-green); }
+        .item-desc { font-size: 0.8rem; color: var(--text-secondary); display: flex; justify-content: space-between; }
+        .map-container { position: relative; width: 100%; height: 100%; }
+        #map { width: 100%; height: 100%; }
+        .floating-details { position: absolute; top: 16px; right: 16px; width: 380px; max-height: calc(100% - 32px); background: rgba(255,255,255,0.98); backdrop-filter: blur(8px); border: 1px solid var(--border-ui); border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15); padding: 18px; z-index: 1000; overflow-y: auto; display: none; }
+        .details-close { float: right; font-size: 1.3rem; border: none; background: none; cursor: pointer; color: var(--text-secondary); }
+        .details-title { font-size: 1.15rem; font-weight: 700; color: var(--kubota-dark); margin-bottom: 2px; }
+        .details-sub { font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 12px; }
+        .details-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 12px; }
+        .details-table td { padding: 5px 0; border-bottom: 1px solid #F1F5F9; }
+        .details-table td:first-child { color: var(--text-secondary); font-weight: 600; width: 42%; }
+        .details-table td:last-child { color: var(--text-primary); font-weight: 700; }
+        .details-box { background: #F8FAFC; border-left: 3px solid var(--kubota-blue); padding: 10px; font-size: 0.78rem; border-radius: 0 6px 6px 0; line-height: 1.45; }
+        .custom-map-pin { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 11px; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-family: 'Ubuntu', sans-serif; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>
+        <span>KUBOTA PHILIPPINES INC.</span>
+        <span class="tagline">| NC Power Tiller Strategic Territory Mapping</span>
+    </h1>
+    <span class="badge">PSA & PhilRice 2024–2026 Data</span>
+</header>
+
+<div class="layout-container">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="filter-label">เลือกดูพื้นที่เป้าหมาย (Territory Selector)</div>
+            <div class="btn-group">
+                <button class="btn-filter active" onclick="applyFilter('ALL')">ทั้งหมด</button>
+                <button class="btn-filter" onclick="applyFilter('VISAYAS')">Visayas</button>
+                <button class="btn-filter" onclick="applyFilter('LUZON')">Luzon</button>
+                <button class="btn-filter" onclick="applyFilter('MINDANAO')">Mindanao</button>
+            </div>
+            <div class="kpi-row">
+                <div class="kpi-card">
+                    <div class="kpi-val" id="kpi-count">15</div>
+                    <div class="kpi-lbl">จังหวัดเป้าหมายหลัก</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-val" id="kpi-palay">10.86M</div>
+                    <div class="kpi-lbl">ผลผลิตข้าว (ตัน/ปี)</div>
+                </div>
+            </div>
+        </div>
+        <div class="province-list" id="province-list-dom"></div>
+    </div>
+
+    <div class="map-container">
+        <div id="map"></div>
+        <div class="floating-details" id="details-card">
+            <button class="details-close" onclick="hideDetails()">&times;</button>
+            <div class="details-title" id="d-name">Province</div>
+            <div class="details-sub" id="d-sub">Region • Island Group</div>
+            <table class="details-table">
+                <tr><td>ผลผลิตข้าวเปลือก:</td><td id="d-prod">-</td></tr>
+                <tr><td>อันดับผลผลิตประเทศ:</td><td id="d-rank">-</td></tr>
+                <tr><td>สภาพดิน/ปัญหาในแปลง:</td><td id="d-soil">-</td></tr>
+                <tr><td>เครื่องจักรที่ใช้อยู่เดิม:</td><td id="d-mach">-</td></tr>
+                <tr><td>ผู้แทนจำหน่าย (AD):</td><td id="d-ad">-</td></tr>
+                <tr><td>ระดับศักยภาพตลาด:</td><td id="d-pot" style="color:var(--kubota-orange);">-</td></tr>
+            </table>
+            <div class="filter-label">ยุทธศาสตร์การเจาะตลาดเฉพาะพื้นที่:</div>
+            <div class="details-box" id="d-strat">-</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const provinces = [
+        { id: 'iloilo', name: 'Iloilo', region: 'VISAYAS', sub: 'Western Visayas (Region 6)', lat: 10.7202, lng: 122.5621, prod: 831334, rank: 5, soil: 'ดินเหนียวจัด นาน้ำฝนสลับชลประทาน แปลงย่อย 0.8-1.2 ha', mach: 'Kuliglig แฮนด์ยาว, ควาย, เครื่องจีน Air-cooled', ad: 'INAIM (Iloilo New Agri-Industrial Marketing)', pot: 'สูงสุด (First Priority ใน Visayas)', strat: 'จัดคาราวานสาธิตร่วมกับ INAIM ชูระบบ 4 เกียร์ มีเบรก คลัตช์เลี้ยวข้าง ทดแทน Kuliglig และกระบือ 100%' },
+        { id: 'capiz', name: 'Capiz', region: 'VISAYAS', sub: 'Western Visayas (Region 6)', lat: 11.4167, lng: 122.7500, prod: 365000, rank: 17, soil: 'ที่ราบลุ่มน้ำขังซ้ำซาก ดินหล่มลึกมาก', mach: 'Turtle Tiller, รถไถดัดแปลงเครื่องจีน', ad: 'เครือข่าย INAIM / ร้านค้าท้องถิ่น', pot: 'สูงมาก', strat: 'ชูน้ำหนักเบากว่าคู่แข่ง 30 กก. วิ่งบนโคลนหล่มไม่จม สามารถย่ำขลุบตอซังได้รวดเร็ว' },
+        { id: 'negros_occ', name: 'Negros Occidental', region: 'VISAYAS', sub: 'Western Visayas (NIR)', lat: 10.6765, lng: 122.9509, prod: 427872, rank: 12, soil: 'ลุ่มน้ำ Bago ตอนใต้ ดินเหนียวอิ่มน้ำ เกษตรกรมีทุน', mach: 'แทรกเตอร์ 4 ล้อ ผสมผสาน Kuliglig', ad: 'Planters Iloilo-Bacolod / Agrimach', pot: 'สูง', strat: 'เจาะกลุ่มสหกรณ์ชาวนาและผู้รับจ้าง ชูการลดต้นทุนน้ำมัน 50% และการเตรียมดินรอบ 2-3 ควบคู่แทรกเตอร์' },
+        { id: 'leyte', name: 'Leyte', region: 'VISAYAS', sub: 'Eastern Visayas (Region 8)', lat: 10.9639, lng: 124.7733, prod: 439671, rank: 11, soil: 'ฝนตกชุกตลอดปี ดินหล่มลึกถาวร แทรกเตอร์ติดหล่มบ่อย', mach: 'กระบือเทียมเกวียน, รถไถล้อเหล็กท้องถิ่น', ad: 'AIMS Agri Ventures (Abuyog, Ormoc)', pot: 'สูงมาก', strat: 'โปรโมต NC+ขลุบ ทำเทือก และ NC+เทรลเลอร์ ขนกระสอบข้าวเปลือกออกจากแปลงนาน้ำขังแทนเกวียนกระบือ' },
+        { id: 'bohol', name: 'Bohol', region: 'VISAYAS', sub: 'Central Visayas (Region 7)', lat: 9.8500, lng: 124.1435, prod: 195000, rank: 18, soil: 'ที่ราบแอ่งหุบเขา คันนาแคบ ขนาดแปลงเล็กจัด', mach: 'Hand Tractor ท้องถิ่น, กระบือลากคราด', ad: 'ดีลเลอร์เครือข่าย Tagbilaran', pot: 'ปานกลาง-สูง', strat: 'เน้นความกะทัดรัด คล่องตัว รัศมีวงเลี้ยวแคบ ข้ามคันนาได้สะดวก เข้าถึงแปลงที่แทรกเตอร์ใหญ่เข้าไม่ได้' },
+        { id: 'nueva_ecija', name: 'Nueva Ecija', region: 'LUZON', sub: 'Central Luzon (Region 3)', lat: 15.5786, lng: 120.9700, prod: 1772448, rank: 1, soil: 'ที่ราบชลประทาน เกิดนาหล่มลึกจากการใช้แทรกเตอร์ซ้ำซาก', mach: 'แทรกเตอร์ L5018, รถเกี่ยว DC-70H, รถไถตรานก', ad: 'Agri Plas (Cabanatuan)', pot: 'สูงมาก (สนามทดสอบสำเร็จ)', strat: 'ขยายผลโมเดลคุณโรแลนด์: แทรกเตอร์โรตารี่รอบแรก ตามด้วย NC+ขลุบย่ำตอซัง ประหยัดต้นทุน 57% ไม่ทำลายชั้นดินดาน' },
+        { id: 'isabela', name: 'Isabela', region: 'LUZON', sub: 'Cagayan Valley (Region 2)', lat: 16.9754, lng: 121.8107, prod: 1468910, rank: 2, soil: 'ดินตะกอนน้ำพา นาชลประทานสลับข้าวโพดบนเนิน', mach: 'แทรกเตอร์ครองตลาด >90%, เครื่องจีนสูบเดียว', ad: 'Equity Machineries (20+ สาขา)', pot: 'ปานกลาง-สูง', strat: 'ปรับความคิด AD ว่า NC เป็นตัวช่วยแทรกเตอร์ทำเทือก และต่อยอดแอปพลิเคชันรถซิ่งขนข้าวโพดลงจากเนินเขา' },
+        { id: 'pangasinan', name: 'Pangasinan', region: 'LUZON', sub: 'Ilocos Region (Region 1)', lat: 15.9267, lng: 120.3317, prod: 1213670, rank: 3, soil: 'ที่ราบลุ่มปากแม่น้ำ ดินเหนียวอิ่มน้ำสูง ปลูก 2.5 รอบ/ปี', mach: 'แทรกเตอร์รับจ้าง, Kuliglig หัวยาว', ad: 'เครือข่าย ADs ภาคเหนือตอนล่าง', pot: 'สูง', strat: 'เจาะกลุ่มผู้รับจ้างเตรียมดิน ช่วยลดเวลาทำงานต่อแปลงและรองรับรอบการเพาะปลูกที่เร่งรีบ' },
+        { id: 'cagayan', name: 'Cagayan', region: 'LUZON', sub: 'Cagayan Valley (Region 2)', lat: 17.6132, lng: 121.7270, prod: 1063403, rank: 4, soil: 'ที่ราบลุ่มแม่น้ำ Cagayan ดินหล่มน้ำขัง', mach: 'แทรกเตอร์ 4 ล้อ, รถไถท้องถิ่น', ad: 'Equity Machineries / Northern ADs', pot: 'สูง', strat: 'เน้นความสามารถในการลุยเลนหล่มน้ำขัง จับคู่กับเครื่องยนต์ ZT180 Plus เพื่อความทนทาน' },
+        { id: 'tarlac', name: 'Tarlac', region: 'LUZON', sub: 'Central Luzon (Region 3)', lat: 15.4802, lng: 120.5979, prod: 619899, rank: 8, soil: 'ที่ราบดินร่วนปนเหนียว ชลประทานดี', mach: 'แทรกเตอร์ 4 ล้อ, รถไถท้องถิ่น, รถเกี่ยว', ad: 'CMMC / ตัวแทนจำหน่าย Tarlac', pot: 'ปานกลาง-สูง', strat: 'เชื่อมโยงการจัดส่งขลุบจากโรงงาน Valdee Farm เพื่อจำหน่ายเป็นแพ็กเกจสมบูรณ์พร้อมลุยงาน' },
+        { id: 'south_cotabato', name: 'South Cotabato', region: 'MINDANAO', sub: 'SOCCSKSARGEN (Region 12)', lat: 6.5020, lng: 124.8465, prod: 280000, rank: 16, soil: 'ที่ราบแอ่งกระทะ ดินภูเขาไฟสลับข้าวโพดลาดชัน', mach: 'Turtle Tiller, รถไถสายพานท้องถิ่น, ควาย', ad: 'Green Valley Machineries (Koronadal)', pot: 'สูงมาก (ฐานที่มั่นเดิม)', strat: 'ต่อยอดลูกค้ารับจ้างเดิม (Mr. Marlon, Mr. Bilbao) ผลิตขลุบและเทรลเลอร์ในโรงงาน Green Valley' },
+        { id: 'davao_de_oro', name: 'Davao de Oro / Norte', region: 'MINDANAO', sub: 'Davao Region (Region 11)', lat: 7.4474, lng: 125.8078, prod: 250000, rank: 19, soil: 'ที่ราบตะกอน ดินหล่มลึกมาก แทรกเตอร์จมประจำ', mach: 'แทรกเตอร์ขนาดกลาง, ควาย, รถไถตรานก', ad: 'Flex-O Viva (Davao) / Alecs 777', pot: 'สูงมาก (สาธิตสำเร็จ)', strat: 'ต่อยอดเคสนายจูน (ซื้อ 3 คัน) ใช้น้ำมันเพียง 10 ลิตร เทียบกับ 40 ลิตรของแทรกเตอร์ ลุยจัดงานสาธิตร่วมกับ AD' },
+        { id: 'bukidnon', name: 'Bukidnon', region: 'MINDANAO', sub: 'Northern Mindanao (Region 10)', lat: 7.9064, lng: 125.0939, prod: 514037, rank: 9, soil: 'ที่ราบสูง ดินร่วนภูเขาไฟ ทำนาในหุบเขา', mach: 'Hand Tractor, ควาย, แทรกเตอร์', ad: 'Juvel Machineries (Valencia)', pot: 'สูงมาก (ผ่าน Type Adoption)', strat: 'เจาะกลุ่มสหกรณ์การเกษตร 2 แห่ง และกลุ่มรับจ้าง ชูผลทดสอบภาคสนาม 102 ชม. ไม่พบปัญหาใหญ่' },
+        { id: 'zamboanga_sur', name: 'Zamboanga del Sur', region: 'MINDANAO', sub: 'Zamboanga Peninsula (Region 9)', lat: 7.8365, lng: 123.2986, prod: 411471, rank: 14, soil: 'หุบเขา Salug Valley ดินเหนียวจัด ชลประทานดี', mach: 'Kuliglig แฮนด์ยาว, รถอีแต๋นท้องถิ่น', ad: 'เครือข่าย Pagadian / Rhema Sub-AD', pot: 'สูงมาก', strat: 'ส่งเสริมการใช้งาน NC+ขลุบ ในเขตชลประทาน Salug Valley River Basin ทดแทนแรงงานคนและกระบือ' },
+        { id: 'maguindanao', name: 'Maguindanao', region: 'MINDANAO', sub: 'BARMM', lat: 7.1475, lng: 124.3411, prod: 626693, rank: 7, soil: 'ที่ราบลุ่มน้ำ Ligawasan ดินหล่มเหนียวลึก', mach: 'ควาย, รถไถดัดแปลงท้องถิ่น', ad: 'CMMC / เครือข่าย Cotabato', pot: 'สูง (ตลาด Tender)', strat: 'นำเสนอผ่านโครงการประมูลจัดซื้อเครื่องจักรของกระทรวงเกษตร BARMM เพื่อยกระดับผลผลิต' }
+    ];
+
+    const map = L.map('map', { center: [12.8797, 121.7740], zoom: 6 });
+
+    // เปลี่ยนมาใช้ OpenStreetMap Standard ซึ่งเปิดให้ใช้งานได้ฟรี 100% ไม่มีลายน้ำ API Key
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | PSA & PhilRice Data',
+        maxZoom: 19
+    }).addTo(map);
+
+    let markers = [];
+
+    function getPinColor(region) {
+        if (region === 'VISAYAS') return '#7C3AED';
+        if (region === 'LUZON') return '#0284C7';
+        if (region === 'MINDANAO') return '#059669';
+        return '#F37021';
+    }
+
+    function renderListAndMap(filter = 'ALL') {
+        const domList = document.getElementById('province-list-dom');
+        domList.innerHTML = '';
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+
+        const filtered = (filter === 'ALL') ? provinces : provinces.filter(p => p.region === filter);
+        
+        document.getElementById('kpi-count').innerText = filtered.length;
+        const total = filtered.reduce((acc, p) => acc + p.prod, 0);
+        document.getElementById('kpi-palay').innerText = (total / 1000000).toFixed(2) + 'M';
+
+        filtered.forEach(p => {
+            const pinColor = getPinColor(p.region);
+            const icon = L.divIcon({
+                className: 'custom-icon',
+                html: `<div class="custom-map-pin" style="background:${pinColor}">${p.rank}</div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+
+            const marker = L.marker([p.lat, p.lng], { icon: icon }).addTo(map);
+            marker.bindTooltip(`<b>#${p.rank} ${p.name}</b><br>${p.prod.toLocaleString()} ตัน/ปี`);
+            marker.on('click', () => showDetails(p));
+            markers.push(marker);
+
+            const item = document.createElement('div');
+            item.className = `province-item reg-${p.region.toLowerCase()}`;
+            item.id = `item-${p.id}`;
+            item.onclick = () => {
+                showDetails(p);
+                map.flyTo([p.lat, p.lng], 9, { duration: 1.2 });
+            };
+            item.innerHTML = `
+                <div class="item-top">
+                    <span class="item-title">#${p.rank} ${p.name}</span>
+                    <span class="item-badge badge-${p.region.toLowerCase()}">${p.region}</span>
+                </div>
+                <div class="item-desc">
+                    <span>${p.prod.toLocaleString()} ตัน/ปี</span>
+                    <span style="font-size:0.72rem;">${p.sub.split('(')[0]}</span>
+                </div>
+            `;
+            domList.appendChild(item);
+        });
+    }
+
+    function showDetails(p) {
+        document.querySelectorAll('.province-item').forEach(el => el.classList.remove('active'));
+        const activeItem = document.getElementById(`item-${p.id}`);
+        if (activeItem) {
+            activeItem.classList.add('active');
+            activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        document.getElementById('d-name').innerText = `#${p.rank} จังหวัด ${p.name}`;
+        document.getElementById('d-sub').innerText = `${p.region} • ${p.sub}`;
+        document.getElementById('d-prod').innerText = `${p.prod.toLocaleString()} เมตริกตัน/ปี`;
+        document.getElementById('d-rank').innerText = `อันดับที่ ${p.rank} ของประเทศ`;
+        document.getElementById('d-soil').innerText = p.soil;
+        document.getElementById('d-mach').innerText = p.mach;
+        document.getElementById('d-ad').innerText = p.ad;
+        document.getElementById('d-pot').innerText = p.pot;
+        document.getElementById('d-strat').innerText = p.strat;
+
+        document.getElementById('details-card').style.display = 'block';
+    }
+
+    function hideDetails() {
+        document.getElementById('details-card').style.display = 'none';
+        document.querySelectorAll('.province-item').forEach(el => el.classList.remove('active'));
+    }
+
+    function applyFilter(reg) {
+        document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        hideDetails();
+        renderListAndMap(reg);
+
+        if (reg === 'VISAYAS') map.flyTo([10.7, 123.5], 7, { duration: 1.2 });
+        else if (reg === 'LUZON') map.flyTo([16.2, 121.0], 7, { duration: 1.2 });
+        else if (reg === 'MINDANAO') map.flyTo([7.5, 124.8], 7, { duration: 1.2 });
+        else map.flyTo([12.8797, 121.7740], 6, { duration: 1.2 });
+    }
+
+    renderListAndMap('ALL');
+</script>
+</body>
+</html>
