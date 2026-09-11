@@ -116,7 +116,23 @@
             box-shadow: 0 2px 6px rgba(243,112,33,0.4);
         }
 
-        /* Main Container */
+        /* Mobile Drawer Backdrop (Hidden by default, fixed full-screen when active) */
+        .mobile-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(3px);
+            z-index: 1900;
+        }
+        .mobile-backdrop.active {
+            display: block;
+        }
+
+        /* Main Container: 2-column grid on desktop */
         .layout-container {
             display: grid;
             grid-template-columns: 400px 1fr;
@@ -126,8 +142,9 @@
             position: relative;
         }
 
-        /* Sidebar Drawer */
+        /* Sidebar Drawer (Column 1 on desktop) */
         .sidebar {
+            grid-column: 1;
             background: var(--bg-card);
             border-right: 1px solid var(--border-ui);
             display: flex;
@@ -136,6 +153,7 @@
             overflow: hidden;
             box-shadow: 2px 0 10px rgba(0,0,0,0.03);
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            height: 100%;
         }
         .sidebar-header { padding: 12px 14px; border-bottom: 1px solid var(--border-ui); background: #FAFBFD; }
 
@@ -400,8 +418,14 @@
         }
         .item-prod { font-weight: 700; color: #047857; font-family: 'Ubuntu', sans-serif; }
 
-        /* Map Container */
-        .map-container { position: relative; width: 100%; height: 100%; }
+        /* Map Container (Column 2 on desktop) */
+        .map-container {
+            grid-column: 2;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
         #map { width: 100%; height: 100%; }
 
         /* Mobile Action Bar / Open Menu Button */
@@ -667,15 +691,17 @@
             header .tagline { display: none; }
             .badge-green, .badge-orange { display: none; }
 
-            /* Layout container: Map occupies full viewport */
+            /* Layout container: Block container on mobile so map fills 100% */
             .layout-container {
-                grid-template-columns: 1fr;
+                display: block;
+                position: relative;
                 height: calc(100vh - 51px);
+                width: 100%;
             }
 
             /* Sidebar converts to an Off-canvas Slide-over Drawer */
             .sidebar {
-                position: absolute;
+                position: fixed;
                 top: 0;
                 left: 0;
                 bottom: 0;
@@ -691,6 +717,13 @@
             }
             .sidebar-mobile-bar {
                 display: flex;
+            }
+
+            /* Map Container full size */
+            .map-container {
+                width: 100%;
+                height: 100%;
+                position: relative;
             }
 
             /* Floating bottom action button to open drawer */
@@ -719,22 +752,6 @@
                 from { transform: translateY(100%); }
                 to { transform: translateY(0); }
             }
-
-            /* Backdrop overlay for mobile drawer */
-            .mobile-backdrop {
-                display: none;
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(15, 23, 42, 0.5);
-                backdrop-filter: blur(3px);
-                z-index: 1900;
-            }
-            .mobile-backdrop.active {
-                display: block;
-            }
         }
     </style>
 </head>
@@ -759,11 +776,11 @@
     </div>
 </header>
 
-<div class="layout-container">
-    <!-- Backdrop for mobile drawer -->
-    <div class="mobile-backdrop" id="mobile-backdrop" onclick="toggleMobileSidebar(false)"></div>
+<!-- Backdrop for mobile drawer (outside layout-container grid) -->
+<div class="mobile-backdrop" id="mobile-backdrop" onclick="toggleMobileSidebar(false)"></div>
 
-    <!-- Sidebar -->
+<div class="layout-container">
+    <!-- Sidebar (Grid Column 1 on Desktop) -->
     <div class="sidebar" id="sidebar-dom">
         <div class="sidebar-header">
             <!-- Mobile drawer title bar with close button -->
@@ -1047,6 +1064,14 @@
         zoomControl: true
     });
 
+    // Ensure Leaflet recalculates dimensions on window resize and initial load
+    window.addEventListener('resize', () => {
+        map.invalidateSize();
+    });
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 250);
+
     // Adjust zoom control position on mobile
     if (window.innerWidth <= 820) {
         map.zoomControl.setPosition('topright');
@@ -1275,6 +1300,7 @@
             sidebar.classList.remove('mobile-open');
             backdrop.classList.remove('active');
         }
+        setTimeout(() => map.invalidateSize(), 320);
     }
 
     // Language Switching function
